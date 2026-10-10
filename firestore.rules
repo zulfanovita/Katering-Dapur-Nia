@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /menu/{id} {
+      allow read: if true;
+      allow create: if sah() && request.resource.data.dibuat_pada == request.time;
+      allow update: if sah()
+        && request.resource.data.dibuat_pada == resource.data.dibuat_pada;
+      allow delete: if true;
+
+      // Field 'foto' (opsional) belum ada di skema resmi: minta persetujuan mentor.
+      function sah() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['nama','harga','sisa_porsi','tersedia','dibuat_pada','foto'])
+          && d.nama is string && d.nama.size() >= 1 && d.nama.size() <= 60
+          && d.harga is int && d.harga >= 0
+          && d.sisa_porsi is int && d.sisa_porsi >= 0
+          && d.tersedia is bool
+          && (!('foto' in d) || (d.foto is string && d.foto.size() <= 200000));
+      }
+    }
+  }
+}
