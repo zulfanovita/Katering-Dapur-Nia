@@ -48,7 +48,24 @@ button{font:inherit;font-weight:700;border-radius:99px;cursor:pointer;min-height
 .top{display:flex;justify-content:space-between;margin:0 -8px 8px}
 .ikon{position:relative;background:none;border:0;border-radius:12px;color:var(--ut);width:44px;min-height:44px;padding:0;display:grid;place-items:center}
 .ikon:hover{background:var(--lembut)}
-.titik{position:absolute;top:8px;right:9px;width:9px;height:9px;border-radius:50%;background:#F59E0B;border:2px solid var(--latar)}
+.notif-badge{position:absolute;top:1px;right:0;min-width:18px;height:18px;padding:0 4px;border:2px solid var(--kartu);border-radius:99px;background:var(--bahaya);color:#fff;font:700 10px/14px var(--isi);text-align:center}
+.notif-kepala{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.notif-kepala h3{margin:0}
+.notif-bagian+.notif-bagian{margin-top:18px}
+.notif-bagian h4{font:600 14px var(--judul);margin:0 0 8px}
+.notif-daftar{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.notif-item{display:flex;align-items:center;gap:10px;width:100%;min-height:0;padding:12px;background:var(--latar);border:1px solid var(--garis);border-radius:16px;color:var(--teks);text-align:left}
+button.notif-item:hover{border-color:var(--ut);background:var(--lembut)}
+.notif-item.notif-info{cursor:default}
+.notif-ikon{width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:12px;background:var(--lembut);color:var(--ut)}
+.notif-isi{min-width:0;flex:1;display:grid;gap:2px}
+.notif-isi b,.notif-isi span,.notif-isi small{overflow-wrap:anywhere}
+.notif-isi b{font-size:13px}
+.notif-isi span,.notif-isi small{font-size:12px;color:var(--redup)}
+.notif-item .pil{flex:none;max-width:110px;white-space:normal;text-align:center}
+.notif-kosong{margin:0;color:var(--redup)}
+.notif-gagal{padding:14px;background:var(--bahaya-latar);border-radius:16px;color:var(--bahaya)}
+.notif-gagal p{margin:0 0 12px}
 .sapa{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-bottom:16px}
 .sapa h1{font-size:28px;line-height:1.25;font-weight:600}.sapa h1 em{font-style:normal;color:var(--ut)}
 .sapa p{margin:8px 0 0;color:var(--redup)}.sapa svg{flex:none}
@@ -106,6 +123,30 @@ label{display:block;font-weight:700;margin-bottom:4px}
 .f textarea:focus{border-color:var(--ut);outline:2px solid var(--utama)}.f textarea[aria-invalid=true]{border-color:var(--bahaya)}
 .pesan-i p{margin:2px 0}.total{font:600 18px var(--judul);color:var(--ut)}
 .ok-info{color:var(--ok);font-weight:700;margin:8px 0}
+.laporan-catatan{margin:0;color:var(--redup);font-size:12px}
+.laporan-ringkas{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.laporan-kartu,.laporan-panel{background:var(--kartu);border-radius:20px;padding:16px;box-shadow:var(--bayang)}
+.laporan-kartu{display:flex;flex-direction:column;gap:4px}
+.laporan-kartu span,.laporan-kartu small,.laporan-status span,.laporan-terlaris span,.laporan-riwayat small{color:var(--redup)}
+.laporan-kartu b{font:600 21px var(--judul);color:var(--ut);overflow-wrap:anywhere}
+.laporan-kartu small,.laporan-riwayat small{font-size:12px}
+.laporan-baris{display:grid;gap:12px;margin-top:12px}
+.laporan-panel h2{font-size:16px;font-weight:600;margin-bottom:12px}
+.laporan-status,.laporan-terlaris,.laporan-riwayat ul{list-style:none;margin:0;padding:0}
+.laporan-status li,.laporan-riwayat li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--garis)}
+.laporan-status li:first-child,.laporan-riwayat li:first-child{border-top:0;padding-top:0}
+.laporan-status b{font:600 16px var(--judul)}
+.laporan-terlaris li+li{margin-top:14px}
+.laporan-terlaris .baris{align-items:center;font-size:13px}
+.laporan-terlaris .baris b{overflow-wrap:anywhere}
+.laporan-bar{height:8px;background:var(--lembut);border-radius:99px;margin-top:6px;overflow:hidden}
+.laporan-bar span{display:block;height:100%;background:var(--utama);border-radius:inherit}
+.laporan-kosong{margin:0;color:var(--redup)}
+.laporan-riwayat{margin-top:12px}
+.laporan-riwayat li>div:first-child{min-width:0}
+.laporan-riwayat li>div:first-child b,.laporan-riwayat small{display:block;overflow-wrap:anywhere}
+.laporan-riwayat .laporan-nilai{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap}
+.laporan-nilai>b{font:600 14px var(--judul);color:var(--ut)}
 
 /* ===== Responsif ===== */
 .app{min-height:100dvh}
@@ -120,6 +161,8 @@ label{display:block;font-weight:700;margin-bottom:4px}
   nav{width:min(720px,100%)}
   .grid2{grid-template-columns:repeat(3,1fr)}
   .daftar{grid-template-columns:1fr 1fr}
+  .laporan-ringkas{grid-template-columns:repeat(4,1fr)}
+  .laporan-baris{grid-template-columns:1fr 1fr}
 }
 @media (min-width:900px){
   body{background:var(--latar);padding-left:208px}

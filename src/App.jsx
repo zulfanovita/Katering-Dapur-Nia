@@ -200,6 +200,174 @@ function PesananKartu({ p, admin, onStatus, onBukti, onBatal }) {
   );
 }
 
+function AdminReport({ pesanan, status, onReload }) {
+  const [periode, setPeriode] = useState("semua");
+  const sekarang = new Date();
+  const awal = new Date(sekarang.getFullYear(), sekarang.getMonth(), sekarang.getDate());
+  if (periode === "7hari") awal.setDate(awal.getDate() - 6);
+  if (periode === "bulan") awal.setDate(1);
+  const tanggalPesanan = (p) => {
+    if (typeof p.tanggal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.tanggal)) {
+      const [tahun, bulan, hari] = p.tanggal.split("-").map(Number);
+      return new Date(tahun, bulan - 1, hari);
+    }
+    return p.dibuat_pada?.toDate ? p.dibuat_pada.toDate() : null;
+  };
+  const daftar = periode === "semua"
+    ? pesanan
+    : pesanan.filter((p) => {
+      const tanggal = tanggalPesanan(p);
+      return tanggal && tanggal >= awal;
+    });
+  const terbayar = daftar.filter((p) => ["dibayar", "diproses", "selesai"].includes(p.status));
+  const omzet = terbayar.reduce((jumlah, p) => jumlah + (Number(p.total) || 0), 0);
+  const porsi = terbayar.reduce((jumlah, p) => jumlah + (Number(p.jumlah_porsi) || 0), 0);
+  const statusPesanan = [
+    ["menunggu_bayar", "Menunggu bayar"],
+    ["dibayar", "Dibayar"],
+    ["diproses", "Diproses"],
+    ["selesai", "Selesai"],
+    ["dibatalkan", "Dibatalkan"],
+  ];
+  const terlaris = Object.values(terbayar.reduce((hasil, p) => {
+    const nama = p.nama_menu || "Menu tanpa nama";
+    hasil[nama] = hasil[nama] || { nama, jumlah: 0, porsi: 0 };
+    hasil[nama].jumlah += 1;
+    hasil[nama].porsi += Number(p.jumlah_porsi) || 0;
+    return hasil;
+  }, {})).sort((x, y) => y.porsi - x.porsi).slice(0, 5);
+  const maksPorsi = Math.max(1, ...terlaris.map((item) => item.porsi));
+  const formatTanggal = (p) => {
+    const tanggal = tanggalPesanan(p);
+    return tanggal ? new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(tanggal) : "Tanggal tidak tersedia";
+  };
+
+  return (
+    <section className="laporan">
+      <div className="atas"><div><h1>Laporan</h1><p>Ringkasan pesanan dan penjualan Dapur Nia.</p></div>
+        <button className="reset" onClick={onReload} disabled={status === "memuat"}>{status === "memuat" ? "Memuat..." : "Muat ulang"}</button></div>
+      <div className="seg" role="group" aria-label="Filter periode laporan">
+        {[["semua", "Semua terbaru"], ["7hari", "7 hari"], ["bulan", "Bulan ini"]].map(([key, label]) => (
+          <button key={key} aria-pressed={periode === key} onClick={() => setPeriode(key)}>{label}</button>
+        ))}
+      </div>
+      <p className="laporan-catatan">Laporan dihitung dari maksimal 20 pesanan terbaru yang tersedia.</p>
+      {status === "memuat" ? <div className="pusat" aria-busy="true"><p>Memuat laporan pesanan...</p></div>
+        : status === "gagal" ? <div className="pusat galat"><Ic n="galat" s={40} c="var(--bahaya)" /><h3>Laporan gagal dimuat</h3><p>Periksa koneksi internet, lalu coba lagi.</p><button className="sekunder" onClick={onReload}>Coba lagi</button></div>
+          : <>
+            <div className="laporan-ringkas">
+              <article className="laporan-kartu"><span>Pesanan</span><b>{rp(daftar.length)}</b><small>{periode === "semua" ? "Dalam 20 pesanan terbaru" : "Pada periode terpilih"}</small></article>
+              <article className="laporan-kartu"><span>Omzet terkonfirmasi</span><b>Rp{rp(omzet)}</b><small>Tidak termasuk menunggu bayar atau dibatalkan</small></article>
+              <article className="laporan-kartu"><span>Porsi terjual</span><b>{rp(porsi)}</b><small>Dari pesanan yang sudah dibayar</small></article>
+              <article className="laporan-kartu"><span>Pesanan selesai</span><b>{rp(daftar.filter((p) => p.status === "selesai").length)}</b><small>Pesanan berstatus selesai</small></article>
+            </div>
+            <div className="laporan-baris">
+              <section className="laporan-panel">
+                <h2>Status pesanan</h2>
+                <ul className="laporan-status">{statusPesanan.map(([key, label]) => {
+                  const jumlah = daftar.filter((p) => p.status === key).length;
+                  return <li key={key}><span>{label}</span><b>{rp(jumlah)}</b></li>;
+                })}</ul>
+              </section>
+              <section className="laporan-panel">
+                <h2>Menu terlaris</h2>
+                {terlaris.length ? <ul className="laporan-terlaris">{terlaris.map((item) => (
+                  <li key={item.nama}><div className="baris"><b>{item.nama}</b><span>{rp(item.porsi)} porsi</span></div>
+                    <div className="laporan-bar"><span style={{ width: `${item.porsi / maksPorsi * 100}%` }} /></div></li>
+                ))}</ul> : <p className="laporan-kosong">Belum ada penjualan terkonfirmasi pada periode ini.</p>}
+              </section>
+            </div>
+            <section className="laporan-panel laporan-riwayat">
+              <h2>Pesanan terbaru</h2>
+              {daftar.length ? <ul>{daftar.slice(0, 8).map((p) => (
+                <li key={p.id}><div><b>{p.nama_menu || "Menu tanpa nama"}</b><small>{formatTanggal(p)} · {p.nama_pelanggan || "Pelanggan"}</small></div>
+                  <div className="laporan-nilai"><span className={"pil " + (STP[p.status] || "p-non")}>{STL[p.status] || "Tidak diketahui"}</span><b>Rp{rp(Number(p.total) || 0)}</b></div>
+                </li>
+              ))}</ul> : <p className="laporan-kosong">Belum ada pesanan pada periode ini.</p>}
+            </section>
+          </>}
+    </section>
+  );
+}
+
+function NotificationPanel({ loggedIn, role, status, pesanan, menuHabis, onReload, onLogin, onViewOrders, onClose }) {
+  const tanggalPesanan = (p) => {
+    if (typeof p.tanggal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.tanggal)) {
+      const [tahun, bulan, hari] = p.tanggal.split("-").map(Number);
+      return new Date(tahun, bulan - 1, hari);
+    }
+    return p.dibuat_pada?.toDate ? p.dibuat_pada.toDate() : null;
+  };
+  const perhatian = role === "admin"
+    ? pesanan.filter((p) => p.status === "menunggu_bayar")
+    : pesanan.filter((p) => p.status === "menunggu_bayar" && !p.bukti_bayar);
+  const pesananLain = pesanan.filter((p) => !perhatian.some((x) => x.id === p.id)).slice(0, 8);
+  const formatTanggal = (p) => {
+    const tanggal = tanggalPesanan(p);
+    return tanggal ? new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(tanggal) : "Tanggal tidak tersedia";
+  };
+  const pesanStatus = (p) => {
+    if (role === "admin" && p.status === "menunggu_bayar") {
+      return p.bukti_bayar ? `Bukti pembayaran dari ${p.nama_pelanggan || "pelanggan"} menunggu verifikasi.`
+        : `Pesanan dari ${p.nama_pelanggan || "pelanggan"} menunggu pembayaran.`;
+    }
+    if (role === "pembeli" && p.status === "menunggu_bayar") {
+      return p.bukti_bayar ? "Bukti pembayaran sudah dikirim dan menunggu verifikasi."
+        : "Silakan selesaikan pembayaran untuk pesanan ini.";
+    }
+    return `Status pesanan: ${STL[p.status] || "Tidak diketahui"}.`;
+  };
+
+  return (
+    <Modal label="Notifikasi" onClose={onClose}>
+      <div className="notif-kepala"><h3>Notifikasi</h3></div>
+      {!loggedIn ? <>
+        <p className="notif-kosong">Masuk untuk melihat notifikasi pesananmu.</p>
+        <div className="tombol"><button className="netral" onClick={onClose}>Tutup</button><button className="utama" onClick={onLogin}>Masuk</button></div>
+      </> : role !== "admin" && role !== "pembeli" ? <>
+        <p className="notif-kosong">Profil akun tidak tersedia, jadi notifikasi pesanan belum bisa dimuat.</p>
+        <div className="tombol"><button className="utama" onClick={onClose}>Tutup</button></div>
+      </> : status === "memuat" ? <div className="notif-kosong" role="status" aria-busy="true">Memuat notifikasi...</div>
+        : status === "gagal" ? <div className="notif-gagal" role="alert"><p>Notifikasi gagal dimuat. Periksa koneksi internet, lalu coba lagi.</p><button className="sekunder" onClick={onReload}>Coba lagi</button></div>
+          : <>
+            {perhatian.length ? <section className="notif-bagian">
+              <h4>{role === "admin" ? "Perlu perhatian" : "Perlu tindakan"}</h4>
+              <ul className="notif-daftar">{perhatian.map((p) => (
+                <li key={p.id}><button className="notif-item" onClick={() => onViewOrders()}>
+                  <span className="notif-ikon"><Ic n="pesan" s={20} /></span>
+                  <span className="notif-isi"><b>{p.nama_menu || "Pesanan"} × {p.jumlah_porsi || 0}</b><span>{pesanStatus(p)}</span><small>{formatTanggal(p)} · Rp{rp(Number(p.total) || 0)}</small></span>
+                  <span className={"pil " + (STP[p.status] || "p-non")}>{STL[p.status] || "Status"}</span>
+                </button></li>
+              ))}</ul>
+            </section> : null}
+            {pesananLain.length ? <section className="notif-bagian">
+              <h4>{role === "admin" ? "Pesanan terbaru" : "Pembaruan pesanan"}</h4>
+              <ul className="notif-daftar">{pesananLain.map((p) => (
+                <li key={p.id}><button className="notif-item" onClick={() => onViewOrders()}>
+                  <span className="notif-ikon"><Ic n="pesan" s={20} /></span>
+                  <span className="notif-isi"><b>{p.nama_menu || "Pesanan"} × {p.jumlah_porsi || 0}</b><span>{pesanStatus(p)}</span><small>{formatTanggal(p)} · Rp{rp(Number(p.total) || 0)}</small></span>
+                  <span className={"pil " + (STP[p.status] || "p-non")}>{STL[p.status] || "Status"}</span>
+                </button></li>
+              ))}</ul>
+            </section> : null}
+            {menuHabis.length ? <section className="notif-bagian">
+              <h4>Informasi menu</h4>
+              <ul className="notif-daftar">{menuHabis.map((m) => (
+                <li key={m.id}><div className="notif-item notif-info">
+                  <span className="notif-ikon"><Ic n="piring" s={20} /></span>
+                  <span className="notif-isi"><b>{m.nama}</b><span>Menu sedang habis.</span></span>
+                  <span className="pil p-habis">Habis</span>
+                </div></li>
+              ))}</ul>
+            </section> : null}
+            {!pesanan.length && !menuHabis.length ? <p className="notif-kosong">Belum ada notifikasi. Pesanan dan informasi stok akan muncul di sini.</p> : null}
+            <div className="tombol"><button className="netral" onClick={onClose}>Tutup</button>
+              {pesanan.length ? <button className="utama" onClick={onViewOrders}>Lihat Pesanan</button> : null}</div>
+          </>}
+    </Modal>
+  );
+}
+
 export default function App() {
   /* data menu */
   const [data, setData] = useState([]), [status, setStatus] = useState("memuat");
@@ -207,6 +375,8 @@ export default function App() {
   const [user, setUser] = useState(null), [profil, setProfil] = useState(null), [authOk, setAuthOk] = useState(false), [tujuan, setTujuan] = useState("home");
   /* pesanan */
   const [pd, setPd] = useState([]), [ps, setPs] = useState("memuat"), [pf, setPf] = useState("semua");
+  const [notifPesanan, setNotifPesanan] = useState([]), [notifStatus, setNotifStatus] = useState("diam");
+  const notifRequest = useRef(0);
   /* tampilan */
   const [tab, setTab] = useState("home");
   const [filter, setFilter] = useState("semua"), [q, setQ] = useState(""), [hf, setHf] = useState("semua"), [hq, setHq] = useState("");
@@ -239,7 +409,27 @@ export default function App() {
     setPs("memuat");
     try { setPd(admin ? await pesananAdmin() : await pesananSaya(user.uid)); setPs("ok"); } catch (err) { console.error(err); setPs("gagal"); }
   };
-  useEffect(() => { if (tab === "pesanan" && user && (admin || pembeli)) muatPesanan(); }, [tab, user?.uid, peran]);
+  const muatNotifikasi = async () => {
+    if (!user || (!admin && !pembeli)) return;
+    const request = ++notifRequest.current;
+    const uid = user.uid;
+    setNotifStatus("memuat");
+    try {
+      const terbaru = admin ? await pesananAdmin() : await pesananSaya(uid);
+      if (request !== notifRequest.current || user?.uid !== uid) return;
+      setNotifPesanan(terbaru);
+      setNotifStatus("ok");
+    } catch (err) {
+      if (request !== notifRequest.current || user?.uid !== uid) return;
+      console.error(err);
+      setNotifStatus("gagal");
+    }
+  };
+  useEffect(() => {
+    if (user && (admin || pembeli)) muatNotifikasi();
+    else { notifRequest.current += 1; setNotifPesanan([]); setNotifStatus("diam"); }
+  }, [user?.uid, peran]);
+  useEffect(() => { if ((tab === "pesanan" || tab === "laporan") && user && (admin || pembeli)) muatPesanan(); }, [tab, user?.uid, peran]);
 
   /* aksi menu (admin) */
   const simpan = async (rec) => {
@@ -258,9 +448,10 @@ export default function App() {
   };
   const kirimPesan = async (jumlah) => {
     await buatPesanan({ menu: fp, jumlah, profil, uid: user.uid });
+    muatNotifikasi();
     setFp(null); info("✓ Pesanan dibuat. Silakan transfer lalu kirim bukti bayar."); setTab("pesanan");
   };
-  const aksi = (fn, ok) => async (...a) => { try { await fn(...a); info("✓ " + ok); } catch (err) { info(pesanGalat(err)); } await muatPesanan(); muat(); };
+  const aksi = (fn, ok) => async (...a) => { try { await fn(...a); info("✓ " + ok); } catch (err) { info(pesanGalat(err)); } await muatPesanan(); muatNotifikasi(); muat(); };
   const gantiStatus = aksi((p, s) => ubahStatus(p, s), "Status pesanan diperbarui");
   const bukti = aksi((p, t) => kirimBukti(p.id, t), "Bukti bayar terkirim");
   const batal = aksi((p) => batalkanSendiri(p.id), "Pesanan dibatalkan");
@@ -272,6 +463,16 @@ export default function App() {
   const habis = a.filter((m) => m.sisa_porsi === 0).length, ada = a.length - habis;
   const porsi = a.reduce((s, m) => s + m.sisa_porsi, 0);
   const buka = () => setForm({ edit: null });
+  const pendingNotif = notifPesanan.filter((p) => p.status === "menunggu_bayar" && (admin || !p.bukti_bayar)).length;
+  const jumlahNotif = pendingNotif + habis;
+  const bukaNotifikasi = () => {
+    setPanel("notif");
+    if (user && (admin || pembeli)) muatNotifikasi();
+  };
+  const lihatPesananDariNotif = () => {
+    setPanel(null);
+    if (user) { setTab("pesanan"); window.scrollTo(0, 0); }
+  };
 
   const keadaan = () => {
     if (status === "memuat") return (<ul className="daftar" aria-busy="true" aria-label="Memuat daftar menu">{[0, 1].map((i) => (<li key={i} className="kartu"><div className="sk" style={{ aspectRatio: "16/10", borderRadius: 0 }} /><div className="isi"><div className="sk" style={{ height: 16, width: "60%" }} /><div className="sk" style={{ height: 16, width: "35%", marginTop: 8 }} /></div></li>))}</ul>);
@@ -324,7 +525,9 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center" }}>
           {user ? null : <button className="sekunder kecil" onClick={() => { setTujuan("home"); setTab("masuk"); }}>Masuk</button>}
           <button className="ikon" aria-label={gelap ? "Pakai tema terang" : "Pakai tema gelap"} onClick={() => setTema(gelap ? "light" : "dark")}><Ic n={gelap ? "matahari" : "bulan"} s={26} /></button>
-          <button className="ikon" aria-label={habis ? `Notifikasi, ${habis} menu habis` : "Notifikasi"} onClick={() => setPanel("notif")}><Ic n="bel" s={26} />{habis && status === "ok" ? <span className="titik" /> : null}</button>
+          <button className="ikon" aria-label={jumlahNotif ? `Notifikasi, ${jumlahNotif} perlu perhatian` : "Notifikasi"} aria-haspopup="dialog" aria-expanded={panel === "notif"} onClick={bukaNotifikasi}>
+            <Ic n="bel" s={26} />{jumlahNotif && (status === "ok" || notifStatus === "ok") ? <span className="notif-badge">{jumlahNotif > 9 ? "9+" : jumlahNotif}</span> : null}
+          </button>
           {user ? <button className="ikon" aria-label="Keluar" title="Keluar" onClick={doKeluar}><Ic n="keluar" s={26} /></button> : null}
         </div></div>
       <div className="sapa"><div><h1>{sapa()},<br /><em>{nama}!</em></h1><p>{admin ? "Semoga dagangan laris hari ini ✨" : user ? "Mau makan apa hari ini? ✨" : "Masuk untuk memesan ✨"}</p></div><Awan malam={jam >= 18 || jam < 5} /></div>
@@ -343,7 +546,7 @@ export default function App() {
       <div className="atas"><div><h1>Kelola Menu</h1><p>{status === "ok" ? `${a.length} menu tampil · ${porsi} porsi siap jual` : "Memuat daftar menu..."}</p></div></div>
       <div className="cari"><input type="search" placeholder="Cari nama menu..." aria-label="Cari nama menu" value={q} onChange={(ev) => setQ(ev.target.value)} /></div>
       <div className="seg" role="group" aria-label="Filter">{F.map(([k, l, n]) => (<button key={k} aria-pressed={filter === k} onClick={() => setFilter(k)}>{l} ({n})</button>))}</div>{daftarMenu}</>);
-  } else isi = blok("Modul Laporan", "Porsi terjual dan uang masuk per tanggal. Dibangun pada praktik berikutnya.", "Kembali ke Menu", () => setTab("menu"));
+  } else isi = <AdminReport pesanan={pd} status={ps} onReload={muatPesanan} />;
 
   const T = !user ? [["home", "Beranda", "home"], ["masuk", "Masuk", "user"]]
     : admin ? [["home", "Beranda", "home"], ["menu", "Menu", "menu"], null, ["pesanan", "Pesanan", "pesan"], ["laporan", "Laporan", "lap"], ["akun", "Profil", "user"]]
@@ -363,10 +566,9 @@ export default function App() {
         {linkPanel.map(([k, l]) => (<button key={k} className="tautan" onClick={() => { setTab(k); setPanel(null); }}>{l}</button>))}
         <button className="tautan" onClick={() => setTema(gelap ? "light" : "dark")}>Tema: {gelap ? "Gelap" : "Terang"} (ketuk untuk ganti)</button>
         <div className="tombol">{user ? <button className="bahaya" onClick={doKeluar}>Keluar</button> : null}<button className="utama" onClick={() => setPanel(null)}>Tutup</button></div></Modal>)}
-      {panel === "notif" && (<Modal label="Notifikasi" onClose={() => setPanel(null)}><h3>Notifikasi</h3>
-        {a.filter((m) => m.sisa_porsi === 0).map((m) => (<p key={m.id} style={{ margin: "0 0 8px" }}><b>{m.nama}</b> sudah habis.</p>))}
-        {habis ? null : <p style={{ margin: 0, color: "var(--redup)" }}>Belum ada notifikasi baru.</p>}
-        <div className="tombol"><button className="utama" onClick={() => setPanel(null)}>Tutup</button></div></Modal>)}
+      {panel === "notif" && <NotificationPanel loggedIn={Boolean(user)} role={peran} status={notifStatus} pesanan={notifPesanan}
+        menuHabis={a.filter((m) => m.sisa_porsi === 0)} onReload={muatNotifikasi} onClose={() => setPanel(null)}
+        onLogin={() => { setTujuan("home"); setPanel(null); setTab("masuk"); }} onViewOrders={lihatPesananDariNotif} />}
       {hapus && (<Modal label="Konfirmasi hapus" onClose={() => setHapus(null)}><h3>Hapus {hapus.nama}?</h3>
         <p style={{ margin: 0, color: "var(--redup)" }}>Menu ini hilang permanen dan tidak bisa dikembalikan.</p>
         <div className="tombol"><button className="netral" onClick={() => setHapus(null)}>Batal</button><button className="bahaya solid" onClick={yaHapus}>Hapus Menu</button></div></Modal>)}
